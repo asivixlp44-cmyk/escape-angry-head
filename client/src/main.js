@@ -14,7 +14,7 @@ import {
 } from './fx.js';
 import {
     buildWorld, warmUp, SPAWN, SPAWN_YAW, renderBoards, updateWorld, cullZones, refreshPads, refreshDoors, lightCheckpoint, resetCheckpoints,
-    coinState, keyState, refreshCoins, refreshKeys, refreshExit, setGuide, moodOf, doorNeed, headIconUrl,
+    coinState, keyState, refreshCoins, refreshKeys, refreshExit, setGuide, moodOf, doorNeed, headIconUrl, ensureStage, lazyStandIns,
 } from './world.js';
 import { heldModel, hatModel, HAT_SPOT, toolSlot } from './gear.js';
 import { HeadView, field as heads, setHeadStage, headSnapshot, updateHeads, headPos, jumpscare, scareScene, scareActive, warmScare, warmScareDone } from './heads.js';
@@ -297,6 +297,7 @@ function teleport(pos, yaw, fx) {
 // Arriving somewhere: its sky, its colliders, its heads, its music
 function enterArea(a, now) {
     if (a === P.area && !now) return;
+    if (a >= 0) ensureStage(a);
     const changed = a !== P.area;
     P.area = a;
     refreshNear(a);
@@ -777,6 +778,8 @@ async function connect(name, endpoint) {
             firstProfile = false;
             // came back in the middle of a stage: offer to carry on from its checkpoint
             if (S.stage >= 0 && !run) setTimeout(() => { if (P.area < 0) showContinue(S.stage, S.cp); }, 2200);
+            const next = S.stage >= 0 ? S.stage : STAGES.findIndex((q, i) => stageOpen(S, i) && S.cleared[i] === undefined);
+            setTimeout(() => ensureStage(next), 1500);
         }
         renderHotbar(); refreshPads(); refreshDoors();
         refreshModal(); refreshDaily();
@@ -792,6 +795,7 @@ async function connect(name, endpoint) {
     room.onMessage('goStage', (m) => {
         const cp = cpOf(m.i, m.k) || cpOf(m.i, 0);
         if (!cp) return;
+        ensureStage(m.i);
         hideRevive(); hideEscaped(); hideContinue();
         S.run = { s: m.i, cp: cp.k };
         coinState.collected.clear(); keyState.got.clear();
@@ -1411,24 +1415,10 @@ async function play() {
     $('#loading').hidden = false;
     if (!joinTask) joinTask = joinServer();
     initAudio();
-    try {
-        await worldReady;
-        $('#loading').textContent = 'Joining…';
-        BX.loadingStep('Joining a server…');
-        const room = await joinTask;
-        const me = room.state.players && room.state.players.get(room.sessionId);
-        S.name = me ? me.name : S.name;
-    } catch (e) {
-        joinTask = null;
-        console.error(e);
-        joining = false;
-        $('#loading').hidden = true;
-        err.hidden = false;
-        err.textContent = 'Could not reach the game server. Check your connection and try again.';
-        retry.hidden = false;
-        BX.loadingEnd();
-        return;
-    }
+    try { await worldReady; } catch (e) { console.error(e); }
+    // Straight into the lobby: a server that nobody has played on for a while takes a few seconds to
+    // wake up, and you can look round meanwhile (the doors and the shop wait for it: see net.send)
+    awaitServer();
     joining = false;
     running = true;
     S.joinedAt = Date.now();
@@ -1446,6 +1436,33 @@ async function play() {
     canvas.focus();
     BX.loadingEnd();
 }
+async function awaitServer() {
+    const chip = $('#chipNet');
+    if (!net.room) chip.hidden = false;
+    try {
+        const room = await joinTask;
+        const me = room.state.players && room.state.players.get(room.sessionId);
+        S.name = me ? me.name : S.name;
+        sendMove(true);
+    } catch (e) {
+        console.error(e);
+        joinTask = null;
+        $('#offlineTitle').textContent = 'Could not reach the game server';
+        $('#offline').hidden = false;
+    }
+    chip.hidden = true;
+}
+// Things that need the server: until it's there, say so instead of silently doing nothing
+const NEEDS_SERVER = new Set(['enter', 'buy', 'code', 'gift', 'daily', 'morph', 'hat', 'limited', 'trail', 'revive']);
+const sendRaw = net.send.bind(net);
+let waitToastT = 0;
+net.send = (type, msg) => {
+    if (!net.room && NEEDS_SERVER.has(type)) {
+        if (performance.now() - waitToastT > 2000) { waitToastT = performance.now(); toast('⏳ Connecting to the game server… one moment!', '#7de8ff'); }
+        return;
+    }
+    sendRaw(type, msg);
+};
 function waitForLogin(ms) {
     if (!BX.bloxity.ready || BX.identity().loggedIn) return Promise.resolve();
     return new Promise((res) => {
@@ -1496,15 +1513,16 @@ const pause = () => new Promise((r) => setTimeout(r, 0));
 async function prepareWorld() {
     const step = (t) => { $('#loading').textContent = t; BX.loadingStep(t); };
     step('Loading fonts…');
-    try { await Promise.race([Promise.all([document.fonts.load('700 40px Fredoka'), document.fonts.load('800 40px Montserrat')]), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* fallback font */ }
-    step('Building the mazes…');
-    await buildWorld(pause);
+    try { await Promise.race([Promise.all([document.fonts.load('700 40px Fredoka'), document.fonts.load('800 40px Montserrat')]), new Promise((r) => setTimeout(r, 1200))]); } catch (e) { /* fallback font */ }
+    step('Building the lobby…');
+    // the lobby and Stage 1 now; every other maze when you first go into it (see ensureStage)
+    await buildWorld(pause, [0]);
     refreshNear(-1);
     step('Preparing graphics…');
     camera.position.set(SPAWN.x, 12, SPAWN.z - 20); camera.lookAt(SPAWN.x, 4, SPAWN.z + 10); camera.updateMatrixWorld();
     // stand-ins for the warm-up: the player model, the bubbles, every tool and hat, one of each
     // head, a rocket and one of each effect. Never disposed (that keeps their shaders alive).
-    const extras = [fxWarmGroup()];
+    const extras = [fxWarmGroup(), lazyStandIns()];
     for (const m of [shieldMat, invisMat]) { const b = new T.Mesh(shieldGeo, m); b.position.copy(SPAWN); extras.push(b); }
     const blocky = buildRig({ ...KITS[0], skin: SKINS[0] }); blocky.position.copy(SPAWN); extras.push(blocky);
     for (const gid of Object.keys(gearById)) { const h = heldModel(gid); h.position.copy(SPAWN); extras.push(h); }

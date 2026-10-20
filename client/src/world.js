@@ -55,8 +55,9 @@ export function cullZones(area) {
 const anim = (o) => { o.userData.anim = true; return o; };
 const FAR_SIGNS = 110;
 const spriteLOD = [];
-function freezeStatic() {
+function freezeStatic(only) {
     for (const [zone, g] of zoneGroups) {
+        if (only !== undefined && zone !== only) continue;
         g.updateMatrixWorld(true);
         g.traverse((o) => {
             if (!o.userData.anim) o.matrixAutoUpdate = false;
@@ -1268,16 +1269,36 @@ export function updateWorld(dt, t, area, me) {
 // =====================================================================================
 // Build everything in slices (the page stays responsive while the server join runs alongside)
 // =====================================================================================
-export async function buildWorld(pause) {
+// The lobby and the first stages (first: their indices) are built behind the loading screen; every
+// other maze the first time someone goes into it (ensureStage), so the game starts in seconds
+const builtStages = new Set();
+export async function buildWorld(pause, first) {
     pause = pause || (() => Promise.resolve());
     buildLobby();
     await pause();
-    for (const m of MAZES) { buildStage(m); await pause(); }
+    for (const i of first || MAZES.map((m) => m.i)) { builtStages.add(i); buildStage(MAZES[i]); await pause(); }
     flowMats.push(slimeMaterial(), lavaMaterial());
     buildArrows();
     flushGeo();
     freezeStatic();
     cullZones(-1);
+}
+// Builds stage i now if it isn't yet (true if it did)
+export function ensureStage(i) {
+    if (i == null || i < 0 || !MAZES[i] || builtStages.has(i)) return false;
+    builtStages.add(i);
+    buildStage(MAZES[i]);
+    flushGeo();
+    freezeStatic(i);
+    const a = shownArea; shownArea = null; cullZones(a);
+    return true;
+}
+export const stageBuilt = (i) => builtStages.has(i);
+// Stand-ins for the warm-up with the materials only some (not yet built) mazes use: the EXIT's force field
+export function lazyStandIns() {
+    const g = new T.Group();
+    g.add(new T.Mesh(new T.PlaneGeometry(1, 1), fieldMat));
+    return g;
 }
 // The sky / light mood of a place
 export function moodOf(area) { return area == null || area < 0 ? 'lobby' : THEMES[STAGES[area].theme].mood; }
