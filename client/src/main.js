@@ -24,7 +24,7 @@ import {
     codeResult, cheer, setSprintMeter, showToolPop, setChase, showHaha, showContinue, hideContinue, comicPop, setGuideLine, setToolCooldown, setStatusChips,
 } from './ui.js';
 import {
-    CFG, STAGES, BOSS, HEAD_TYPES, KITS, SKINS, trailById, gearById, hatById, HITTERS, passForTool, passForHat, fmt, clamp, revivePrice, stageOpen, limitedFree,
+    CFG, STAGES, BOSS, KITS, SKINS, trailById, gearById, hatById, HITTERS, passForTool, passForHat, fmt, clamp, revivePrice, stageOpen, limitedFree,
 } from '../../shared/config.js';
 import { MAZES, CHECKPOINTS, COINS, KEYS, WALL_H, stageAt, isSafe, cpOf } from '../../shared/maze.js';
 
@@ -1527,7 +1527,9 @@ async function prepareWorld() {
     const blocky = buildRig({ ...KITS[0], skin: SKINS[0] }); blocky.position.copy(SPAWN); extras.push(blocky);
     for (const gid of Object.keys(gearById)) { const h = heldModel(gid); h.position.copy(SPAWN); extras.push(h); }
     for (const hid of Object.keys(hatById)) { const h = hatModel(hid); h.position.copy(SPAWN); extras.push(h); }
-    for (const ht of Object.keys(HEAD_TYPES)) { const v = new HeadView(ht); v.root.position.copy(SPAWN); extras.push(v.root); }
+    // every head shares one shader: a plain one and the see-through ghost cover them all (the other
+    // types' meshes are built when a maze with them is first entered)
+    for (const ht of ['normal', 'ghost']) { const v = new HeadView(ht); v.root.position.copy(SPAWN); extras.push(v.root); }
     const rk = new T.Mesh(rocketGeo, rocketMat); rk.position.copy(SPAWN); extras.push(rk);
     try {
         const base = await Promise.race([loadBase(), new Promise((r) => setTimeout(r, 4000))]);

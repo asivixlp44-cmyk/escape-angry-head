@@ -301,9 +301,16 @@ export function solidBox(x, y, z, sx, sy, sz, o) {
 // fits inside maxW pixels; sets it on the canvas and returns it. Every sign uses this, so no
 // letters are ever cut off at a board's edge, whatever font actually loaded.
 export function fitFont(x, text, maxW, px, weight, family, strokeK) {
-    const f = (p) => `${weight} ${p}px ${family}`;
+    const f = (p) => `${weight} ${p}px ${family}`, k = strokeK || 0;
     x.font = f(px);
-    while (px > 8 && x.measureText(text).width + px * (strokeK || 0) > maxW) { px -= 1; x.font = f(px); }
+    const w = x.measureText(text).width;
+    if (w + px * k > maxW) {
+        // text grows in step with the font size: jump straight to the size that fits, then nudge
+        // (setting the font is slow; stepping down a pixel at a time cost seconds at load)
+        px = Math.max(8, Math.floor(px * maxW / (w + px * k)));
+        x.font = f(px);
+        while (px > 8 && x.measureText(text).width + px * k > maxW) { px -= 1; x.font = f(px); }
+    }
     return px;
 }
 export function textCanvas(lines, W) {
