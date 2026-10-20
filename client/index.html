@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Escape Angry Head</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='52' r='44' fill='%23f2c4a0' stroke='%231a0a1a' stroke-width='6'/%3E%3Cpath d='M8 48q4-44 42-44t42 44q-10-22-42-22T8 48z' fill='%23f0d27a' stroke='%231a0a1a' stroke-width='5'/%3E%3Cpath d='M26 40l18 8M74 40l-18 8' stroke='%231a0a1a' stroke-width='6' stroke-linecap='round'/%3E%3Cellipse cx='50' cy='72' rx='18' ry='13' fill='%232a0408' stroke='%23c22a36' stroke-width='5'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Montserrat:wght@800;900&display=swap">
+<style>
+:root {
+    color-scheme: dark;
+    --ink: #160a24;
+    --yellow: #ffd028;
+    --green: #46ec50;
+    --red: #e82434;
+    --purple: #8a3aff;
+    --white: #ffffff;
+    --font: "Fredoka", "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif;
+    font-size: clamp(9px, calc(100vmin / 56), 17px);
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; overflow: hidden; background: #1a1030; }
+body { font-family: var(--font); color: var(--white); user-select: none; -webkit-user-select: none; touch-action: none; -webkit-tap-highlight-color: transparent; }
+#app { position: fixed; inset: 0; }
+#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+#speedLines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* a soft vignette drawn by the page, not by a post pass (free) */
+#vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, transparent 58%, rgba(20, 6, 30, 0.32) 100%); }
+button { font-family: var(--font); cursor: pointer; color: var(--white); }
+button:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
+.o { text-shadow: -2px -2px 0 var(--ink), 2px -2px 0 var(--ink), -2px 2px 0 var(--ink), 2px 2px 0 var(--ink), 0 2px 0 var(--ink), 0 -2px 0 var(--ink), 2px 0 0 var(--ink), -2px 0 0 var(--ink), 0 3px 0 var(--ink); }
+.o1 { text-shadow: -1px -1px 0 var(--ink), 1px -1px 0 var(--ink), -1px 1px 0 var(--ink), 1px 1px 0 var(--ink), 0 1.5px 0 var(--ink); }
+.btn {
+    border: 3px solid var(--ink); border-radius: 0.8rem; font-weight: 700;
+    box-shadow: inset 0 -0.3rem 0 rgba(0, 0, 0, 0.22), inset 0 0.2rem 0 rgba(255, 255, 255, 0.35), 0 0.2rem 0 var(--ink);
+    transition: transform 0.18s cubic-bezier(0.34, 1.8, 0.5, 1), filter 0.15s ease;
+}
+.btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.04); filter: brightness(1.08); }
+.btn:active:not(:disabled) { transform: translateY(2px) scale(0.95); transition-duration: 0.06s; }
+.btn:disabled { filter: grayscale(0.7) brightness(0.8); cursor: default; }
+.g-yellow { background: linear-gradient(#fff07a, #ffc414); }
+.g-green { background: linear-gradient(#8aff7a, #22c73a); }
+.g-blue { background: linear-gradient(#7ae6ff, #1f8fff); }
+.g-red { background: linear-gradient(#ff7a8a, #e8182c); }
+.g-purple { background: linear-gradient(#e27bff, #8a1cff); }
+.g-orange { background: linear-gradient(#ffc06a, #ff6a1a); }
+.g-grey { background: linear-gradient(#c8c4d8, #7a7690); }
+.g-gold { background: linear-gradient(#fff2a0, #ffb81c); }
+@keyframes shine { 0%, 82% { transform: translateX(-120%) skewX(-20deg); } 100% { transform: translateX(160%) skewX(-20deg); } }
+
+/* HUD ------------------------------------------------------------------ */
+#hud { position: absolute; inset: 0; pointer-events: none; }
+#hud > * { pointer-events: auto; }
+#hud .passive { pointer-events: none; }
+#flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.5s ease; }
+/* being chased: the edges of the screen pulse red, an arrow points at the head */
+#chase { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at 50% 50%, transparent 45%, rgba(200, 0, 20, 0.55) 100%); animation: chasePulse 0.55s ease-in-out infinite alternate; }
+@keyframes chasePulse { from { filter: brightness(0.8); } to { filter: brightness(1.25); } }
+#chaseArrow { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; opacity: 0; }
+#chaseArrow .a { position: absolute; left: -1.6rem; top: calc(-1 * min(40vh, 40vw)); width: 3.2rem; height: 3.2rem; display: grid; place-items: center; font-size: 2.4rem; filter: drop-shadow(0 0 0.5rem #ff2a3a); }
+#runTxt { position: absolute; left: 50%; top: 24%; transform: translateX(-50%); font-family: "Montserrat", var(--font); font-size: 2.8rem; font-weight: 900; color: #ff3a4a; letter-spacing: 0.04em; pointer-events: none; opacity: 0; animation: runShake 0.3s linear infinite; }
+@keyframes runShake { 25% { transform: translateX(-52%) rotate(-2deg); } 75% { transform: translateX(-48%) rotate(2deg); } }
+
+.chunk { position: relative; display: flex; align-items: center; justify-content: center; gap: 0.3rem; height: 3.3rem; padding: 0 2.6rem 0 1rem; border: 0.2rem solid var(--ink); border-radius: 0.6rem; font-size: 1.5rem; font-weight: 700; color: #fff; box-shadow: inset 0 -0.35rem 0 rgba(0,0,0,0.25), inset 0 0.25rem 0 rgba(255,255,255,0.4), 0 0.22rem 0 var(--ink), 0 0.4rem 0.9rem rgba(10,0,30,0.35); overflow: visible; transition: transform 0.18s cubic-bezier(0.34, 1.8, 0.5, 1); white-space: nowrap; }
+.chunk:hover { transform: translateY(-2px) scale(1.04); }
+.chunk:active { transform: translateY(2px) scale(0.95); }
+.chunk .ico { position: absolute; right: -1.1rem; top: 50%; transform: translateY(-55%) rotate(-12deg); font-size: 2.5rem; line-height: 1; filter: drop-shadow(0 0.15rem 0 rgba(0,0,0,0.35)); pointer-events: none; }
+.chunk .sheen { position: absolute; inset: 0; overflow: hidden; border-radius: 0.4rem; pointer-events: none; }
+.chunk .sheen::after { content: ''; position: absolute; top: 0; bottom: 0; width: 30%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent); transform: translateX(-120%) skewX(-20deg); animation: shine 5s ease-in-out infinite; }
+.chunk.on { box-shadow: 0 0 0 0.22rem #fff, 0 0 1.2rem 0.3rem rgba(255,80,80,0.7), inset 0 -0.35rem 0 rgba(0,0,0,0.22); }
+.c-blue { background: linear-gradient(#5ad8ff, #1a6ae8); }
+.c-red { background: linear-gradient(#ff5a5a, #c8101e); }
+.c-purple { background: linear-gradient(#c87aff, #6a1ad8); }
+.c-orange { background: linear-gradient(#ffc04a, #e8601a); }
+
+/* Top centre: Coins, the place you're in, what to do next, the next gift */
+#topBar { position: absolute; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 0.6rem); transform: translateX(-50%); display: grid; justify-items: center; gap: 0.35rem; width: max-content; max-width: 70vw; }
+#coinBar { position: relative; display: flex; align-items: center; gap: 0.4rem; min-width: 8.5rem; height: 2.3rem; padding: 0 0.25rem 0 0.25rem; border: 0.18rem solid var(--ink); border-radius: 1.3rem; background: linear-gradient(#3a2a5a, #22163a); box-shadow: inset 0 0.15rem 0 rgba(255,255,255,0.2), 0 0.2rem 0 var(--ink); }
+#coinBar .coin { width: 1.8rem; height: 1.8rem; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6a8, #ffd028 55%, #d08a08); border: 0.14rem solid #8a5a00; box-shadow: 0 0 0.6rem rgba(255,208,40,0.6); }
+#coinBar b { flex: 1; text-align: center; font-size: 1.3rem; font-weight: 700; color: #ffe24a; font-variant-numeric: tabular-nums; }
+#coinBar.bump { animation: bump 0.45s cubic-bezier(0.34, 1.8, 0.5, 1); }
+@keyframes bump { 35% { transform: scale(1.18); } }
+#coinPlus { width: 1.8rem; height: 1.8rem; padding: 0; font-size: 1.3rem; line-height: 1; border-radius: 50%; border-width: 2px; display: grid; place-items: center; }
+#boostTag { position: absolute; right: -0.4rem; top: -0.75rem; font-size: 0.75rem; font-weight: 700; color: #fff06a; white-space: nowrap; background: #c8121e; border: 2px solid var(--ink); border-radius: 0.6rem; padding: 0 0.35rem; }
+#placePill { font-size: 1.05rem; font-weight: 700; padding: 0.12rem 0.8rem; border-radius: 1rem; background: rgba(22,10,36,0.6); border: 2px solid rgba(255,255,255,0.5); white-space: nowrap; }
+#guideLine { font-size: 1.15rem; font-weight: 700; color: #fff; text-align: center; max-width: min(36rem, 70vw); line-height: 1.2; padding: 0.15rem 0.7rem; border-radius: 0.8rem; background: linear-gradient(90deg, rgba(120,30,200,0), rgba(120,30,200,0.55), rgba(120,30,200,0)); }
+#chips { display: flex; gap: 0.35rem; flex-wrap: wrap; justify-content: center; }
+.chip { font-size: 0.95rem; font-weight: 700; padding: 0.08rem 0.55rem; border-radius: 0.8rem; border: 2px solid var(--ink); background: linear-gradient(#5a3a8a, #3a1a6a); white-space: nowrap; }
+#giftChip { cursor: pointer; background: linear-gradient(#ff7a8a, #c8182c); }
+#giftChip.ready { background: linear-gradient(#8aff7a, #22c73a); animation: pulse 0.9s ease-in-out infinite; }
+#fuelChip { width: 5rem; padding: 0; height: 1.1rem; position: relative; overflow: hidden; background: #2a1a3a; }
+#fuelChip i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #ff8a1a, #ffd028); }
+
+/* Left: the Shop, the morph, the quick boosts (the reference's Jump Higher / No Damage) */
+#leftCol { position: absolute; left: max(1rem, calc(env(safe-area-inset-left, 0px) + 0.6rem)); top: max(9rem, 26vh); display: grid; gap: 0.7rem; justify-items: start; }
+#leftCol .chunk { min-width: 9.5rem; }
+#quick { display: flex; gap: 0.55rem; margin-top: 0.3rem; }
+.round { position: relative; width: 4.2rem; height: 4.2rem; padding: 0; border-radius: 50%; border: 0.2rem solid #fff; background: radial-gradient(circle at 35% 30%, #8a5ad8, #3a1a7a 70%); box-shadow: 0 0 0 0.2rem var(--ink), 0 0.3rem 0.8rem rgba(0,0,0,0.35); display: grid; place-content: center; text-align: center; font-weight: 700; font-size: 0.8rem; line-height: 1.05; transition: transform 0.18s cubic-bezier(0.34, 1.8, 0.5, 1); }
+.round:hover { transform: scale(1.07); }
+.round:active { transform: scale(0.92); }
+.round big { display: block; font-size: 1.7rem; line-height: 1.05; }
+.round .coin { position: absolute; bottom: -0.85rem; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 0.15rem; padding: 0.06rem 0.4rem; border-radius: 0.7rem; border: 0.14rem solid var(--ink); background: linear-gradient(#ffe24a, #ffb81c); font-size: 0.78rem; line-height: 1; color: #3a2000; text-shadow: none; white-space: nowrap; box-shadow: 0 0.12rem 0 var(--ink); }
+.round.active { background: radial-gradient(circle at 35% 30%, #8affc8, #22a86a 70%); }
+#sprintBtn { position: absolute; right: max(1.2rem, env(safe-area-inset-right, 0px)); bottom: max(6.5rem, 20vh); background: radial-gradient(circle at 35% 30%, #8a8aa8, #4a4a62 70%); }
+#sprintBtn.on { background: radial-gradient(circle at 35% 30%, #8affc8, #22a86a 70%); }
+#sprintBtn .meter { position: absolute; inset: -0.55rem; border-radius: 50%; background: conic-gradient(#9aff7a calc(var(--p, 1) * 360deg), rgba(255,255,255,0.15) 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 0.35rem), #000 calc(100% - 0.34rem)); mask: radial-gradient(farthest-side, transparent calc(100% - 0.35rem), #000 calc(100% - 0.34rem)); pointer-events: none; }
+
+/* Top right: the menu icons (the top left is the Bloxity overlay's) */
+#iconRow { position: absolute; right: max(0.6rem, env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + 0.6rem); display: flex; gap: 0.3rem; }
+.ib { position: relative; width: 3.3rem; height: 3.75rem; padding: 0; border: 0; background: none; cursor: pointer; transition: transform 0.18s cubic-bezier(0.34, 1.8, 0.5, 1); }
+.ib .bub { display: grid; place-items: center; width: 2.8rem; height: 2.8rem; margin: 0 auto; border-radius: 0.9rem; border: 0.18rem solid var(--ink); background: var(--bg, linear-gradient(#fff, #d8e8ff)); font-size: 1.45rem; box-shadow: inset 0 0.2rem 0 rgba(255,255,255,0.6), inset 0 -0.25rem 0 rgba(0,0,0,0.15), 0 0.18rem 0 var(--ink); }
+.ib .lb { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); font-size: 0.72rem; font-weight: 700; line-height: 1; white-space: nowrap; }
+.ib:hover { transform: translateY(-2px) scale(1.08); }
+.ib:active { transform: translateY(1px) scale(0.92); }
+.badge { position: absolute; top: -0.3rem; right: -0.2rem; background: var(--red); border: 2px solid var(--ink); border-radius: 1rem; font-size: 0.78rem; padding: 0.02rem 0.36rem; font-weight: 700; z-index: 2; color: #fff; }
+#fps { position: absolute; right: max(1rem, env(safe-area-inset-right, 0px)); bottom: 0.6rem; font-size: 0.85rem; font-weight: 700; color: #7dff6b; }
+#friendBoost { position: absolute; left: max(0.8rem, env(safe-area-inset-left, 0px)); bottom: max(0.5rem, env(safe-area-inset-bottom, 0px)); font-size: 1rem; font-weight: 700; }
+
+/* Bottom centre: the hotbar */
+#hotbar { position: absolute; left: 50%; bottom: max(0.6rem, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; gap: 0.35rem; }
+.slot { position: relative; width: 3.8rem; height: 3.8rem; border-radius: 0.6rem; border: 3px solid rgba(255,255,255,0.75); background: rgba(22, 10, 40, 0.6); display: grid; place-items: center; font-size: 1.9rem; padding: 0; overflow: hidden; }
+.slot.on { border-color: #ffffff; background: rgba(160, 90, 255, 0.45); box-shadow: 0 0 0.9rem rgba(200,140,255,0.8); }
+.slot .n { position: absolute; left: 0.25rem; top: 0.05rem; font-size: 0.8rem; font-weight: 700; }
+.slot .cd { position: absolute; inset: 0; background: conic-gradient(rgba(10,0,20,0.7) calc(var(--c, 0) * 360deg), transparent 0); pointer-events: none; }
+#crosshair { position: absolute; left: 50%; top: 50%; width: 1.8rem; height: 1.8rem; margin: -0.9rem 0 0 -0.9rem; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 2px var(--ink); pointer-events: none; }
+#crosshair::after { content: ''; position: absolute; left: 50%; top: 50%; width: 0.3rem; height: 0.3rem; margin: -0.15rem; background: #ff4a3a; border-radius: 50%; }
+
+/* The stage intro: the reference's red paint splash with the head in a circle */
+#intro { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 1rem; padding: 1.4rem 3rem 1.4rem 1.6rem; pointer-events: none; }
+#intro::before { content: ''; position: absolute; inset: -0.6rem -1.6rem; background: #c8101c; clip-path: polygon(2% 30%, 6% 8%, 18% 14%, 30% 2%, 42% 10%, 55% 0%, 66% 9%, 80% 3%, 90% 14%, 99% 10%, 96% 34%, 100% 52%, 95% 70%, 99% 92%, 84% 88%, 72% 100%, 60% 90%, 46% 98%, 34% 88%, 20% 97%, 10% 86%, 1% 92%, 4% 70%, 0% 50%); filter: drop-shadow(0 0.4rem 0 rgba(0,0,0,0.4)); }
+#intro .face { position: relative; width: 6.5rem; height: 6.5rem; border-radius: 50%; background: var(--head) center 60% / 112% no-repeat, #1a0a0a; border: 0.3rem solid #1a0204; flex: none; }
+#intro .tx { position: relative; display: grid; }
+#intro .n { font-family: "Montserrat", var(--font); font-size: 2.7rem; font-weight: 900; line-height: 1; white-space: nowrap; color: #fff; text-shadow: 0 0.2rem 0 #3a0006; }
+#intro .s { font-size: 1.1rem; font-weight: 700; color: #ffd8d8; margin-top: 0.3rem; white-space: nowrap; }
+#intro.go { animation: introIn 3.6s cubic-bezier(0.2, 1.4, 0.4, 1) forwards; }
+@keyframes introIn { 0% { transform: translate(-50%, -50%) scale(0.3) rotate(-6deg); opacity: 0; } 10% { transform: translate(-50%, -50%) scale(1.08) rotate(1deg); opacity: 1; } 16% { transform: translate(-50%, -50%) scale(1); } 85% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.96); } }
+/* HAHA! (when a head gets you) */
+#haha { position: absolute; left: 22%; top: 30%; font-family: "Montserrat", var(--font); font-size: 5rem; font-weight: 900; color: #1a0a0a; pointer-events: none; text-shadow: 0 0 0.4rem #fff, 0 0 1rem #fff; }
+#haha.go { animation: haha 1.3s ease forwards; }
+@keyframes haha { 0% { transform: scale(0.4) rotate(-12deg); opacity: 0; } 12% { transform: scale(1.2) rotate(4deg); opacity: 1; } 20%, 40%, 60% { transform: scale(1) rotate(-4deg); } 30%, 50%, 70% { transform: scale(1.05) rotate(4deg); } 85% { opacity: 1; } 100% { opacity: 0; } }
+#blackout { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
+
+/* "Keep going?" after a catch */
+#revive { position: absolute; left: 50%; bottom: 24%; transform: translateX(-50%); display: grid; justify-items: center; gap: 0.35rem; pointer-events: auto; animation: reviveIn 0.3s cubic-bezier(0.34, 1.6, 0.5, 1); }
+#revive .q { font-size: 1.5rem; font-weight: 700; }
+#reviveBtn { position: relative; min-width: 10rem; padding: 0.3rem 1.4rem; font-size: 1.5rem; background: linear-gradient(#a8ff4a, #3ac81a); }
+#reviveBtn small { position: absolute; right: -0.9rem; top: -0.8rem; font-size: 0.9rem; color: #3a2000; background: linear-gradient(#ffe24a, #ffb81c); border: 2px solid var(--ink); border-radius: 0.7rem; padding: 0 0.35rem; text-shadow: none; }
+#reviveBar { position: relative; width: 11rem; height: 0.45rem; border-radius: 1rem; background: #fff; overflow: hidden; box-shadow: 0 0 0 2px var(--ink); }
+#reviveFill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: #e8182c; }
+@keyframes reviveIn { 0% { transform: translateX(-50%) scale(0.6); opacity: 0; } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
+/* ESCAPED! */
+#escaped { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; text-align: center; gap: 0.4rem; background: radial-gradient(circle at 50% 45%, rgba(40,10,70,0.55), rgba(10,0,20,0.75)); z-index: 15; }
+#escaped .rays { position: absolute; left: 50%; top: 45%; width: 140vmax; height: 140vmax; margin: -70vmax 0 0 -70vmax; background: repeating-conic-gradient(rgba(140, 255, 120, 0.18) 0deg 10deg, transparent 10deg 20deg); animation: spin 14s linear infinite; mask-image: radial-gradient(circle, #000 12%, transparent 55%); -webkit-mask-image: radial-gradient(circle, #000 12%, transparent 55%); pointer-events: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#escaped .t { position: relative; font-family: "Montserrat", var(--font); font-size: 4.4rem; font-weight: 900; color: #9aff7a; animation: winPop 0.7s cubic-bezier(0.2, 1.6, 0.4, 1); }
+#escaped .s { position: relative; font-size: 1.5rem; font-weight: 700; }
+#escaped .c { position: relative; font-size: 2.2rem; font-weight: 700; color: #ffe24a; }
+#escaped .first { position: relative; display: inline-block; font-size: 1.1rem; font-weight: 700; padding: 0.1rem 0.7rem; border-radius: 0.8rem; background: linear-gradient(#ff7a8a, #c8121e); border: 2px solid var(--ink); }
+#escaped .acts { position: relative; display: flex; gap: 0.8rem; margin-top: 0.8rem; }
+#escaped .acts .btn { font-size: 1.35rem; padding: 0.45rem 1.4rem; }
+@keyframes winPop { 0% { transform: scale(0.2) rotate(-12deg); } 100% { transform: scale(1); } }
+/* Welcome back: carry on from your checkpoint */
+#continue { position: absolute; left: 50%; bottom: 16%; transform: translateX(-50%); display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.8rem; align-items: center; padding: 0.7rem 1rem 0.9rem; background: linear-gradient(#7a4ae8, #3a1aa8); border: 3px solid var(--ink); border-radius: 0.9rem; box-shadow: 0 0.4rem 1.2rem rgba(10,0,30,0.5); animation: reviveIn 0.35s cubic-bezier(0.34, 1.6, 0.5, 1); }
+#continue .ic { grid-row: 1 / 4; font-size: 3rem; line-height: 1; }
+#continue h3 { margin: 0; font-size: 1.3rem; }
+#continue p { margin: 0; font-size: 0.85rem; opacity: 0.95; max-width: 15rem; }
+#continue .acts { display: flex; gap: 0.4rem; }
+#continue .acts .btn { font-size: 1rem; padding: 0.2rem 0.7rem; border-width: 2px; }
+/* Pad popup: buy or equip */
+#gearPop { position: absolute; left: 50%; bottom: max(7rem, calc(env(safe-area-inset-bottom, 0px) + 6.5rem)); transform: translateX(-50%); display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.6rem; align-items: center; padding: 0.5rem 0.8rem; background: linear-gradient(#7a4ae8, #3a1aa8); border: 3px solid var(--ink); border-radius: 0.8rem; box-shadow: 0 0.4rem 1rem rgba(10,0,30,0.45); }
+#gearPop .ic { grid-row: 1 / 4; width: 3.2rem; height: 3.2rem; display: grid; place-items: center; font-size: 2.6rem; }
+#gearPop h3 { margin: 0; font-size: 1.25rem; }
+#gearPop p { margin: 0; font-size: 0.8rem; max-width: 14rem; }
+#gearPop .acts { display: flex; gap: 0.4rem; }
+#gearPop .acts .btn { font-size: 0.95rem; padding: 0.15rem 0.6rem; border-width: 2px; }
+#cheer { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); font-size: 1.9rem; font-weight: 700; color: #9aff7a; white-space: nowrap; pointer-events: none; }
+#cheer.go { animation: cheerIn 2.4s ease forwards; }
+@keyframes cheerIn { 0% { opacity: 0; transform: translateX(-50%) scale(0.5); } 12% { opacity: 1; transform: translateX(-50%) scale(1.12); } 22% { transform: translateX(-50%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-0.6rem); } }
+#tpFx { position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(-55deg, #d8b8ff 0 4rem, #ffffff 4rem 9rem); opacity: 0; }
+#tpFx.go { animation: tp 0.6s ease forwards; }
+@keyframes tp { 0% { opacity: 0; background-position: 0 0; } 25% { opacity: 0.8; } 70% { opacity: 0.8; } 100% { opacity: 0; background-position: 30rem 0; } }
+#toasts { position: absolute; left: 50%; top: 30%; transform: translateX(-50%); width: min(44rem, 92vw); display: grid; justify-items: center; gap: 0.3rem; pointer-events: none; }
+.toast { font-size: 1.25rem; font-weight: 700; padding: 0.1rem 0.5rem; animation: toastIn 2.8s ease forwards; text-align: center; line-height: 1.25; }
+@keyframes toastIn { 0% { opacity: 0; transform: translateY(0.6rem) scale(0.85); } 10% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-0.6rem); } }
+#tips { position: absolute; left: 50%; bottom: 5.8rem; transform: translateX(-50%); display: flex; gap: 0.8rem; flex-wrap: wrap; justify-content: center; font-size: 0.95rem; font-weight: 600; transition: opacity 0.8s ease; pointer-events: none; width: max-content; max-width: 90vw; }
+#tips kbd { display: inline-block; padding: 0.05rem 0.4rem; margin-right: 0.3rem; border: 2px solid #fff; border-radius: 0.35rem; background: rgba(22,10,40,0.6); font-family: var(--font); font-size: 0.85rem; }
+#promptBtn { position: absolute; left: 0; top: 0; transform: translate(-50%, -110%); will-change: transform; display: flex; align-items: center; gap: 0.45rem; padding: 0.3rem 0.7rem 0.3rem 0.35rem; background: rgba(22, 10, 40, 0.85); border: 2px solid rgba(255, 255, 255, 0.9); border-radius: 0.8rem; font-size: 1rem; font-weight: 700; white-space: nowrap; }
+#promptBtn kbd { display: inline-grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 0.4rem; background: #fff; color: var(--ink); font-family: var(--font); font-weight: 700; }
+
+/* Touch controls */
+#touch { position: absolute; inset: 0; pointer-events: none; }
+#stick { position: absolute; left: max(1.4rem, env(safe-area-inset-left, 0px)); bottom: max(2.4rem, env(safe-area-inset-bottom, 0px)); width: 9rem; height: 9rem; border-radius: 50%; background: rgba(255,255,255,0.16); border: 3px solid rgba(255,255,255,0.5); pointer-events: auto; touch-action: none; }
+#knob { position: absolute; left: 50%; top: 50%; width: 3.8rem; height: 3.8rem; margin: -1.9rem 0 0 -1.9rem; border-radius: 50%; background: rgba(255,255,255,0.85); border: 3px solid var(--ink); }
+#jumpBtn { position: absolute; right: max(1.4rem, env(safe-area-inset-right, 0px)); bottom: max(2.4rem, env(safe-area-inset-bottom, 0px)); width: 6.4rem; height: 6.4rem; border-radius: 50%; font-size: 1.25rem; pointer-events: auto; }
+#useBtn { position: absolute; right: max(8.8rem, env(safe-area-inset-right, 0px)); bottom: max(3.4rem, env(safe-area-inset-bottom, 0px)); width: 4.8rem; height: 4.8rem; border-radius: 50%; font-size: 2rem; pointer-events: auto; }
+body.touch #leftCol { top: max(7rem, 20vh); gap: 0.45rem; }
+body.touch #leftCol .chunk { height: 2.7rem; min-width: 8rem; font-size: 1.2rem; }
+body.touch .chunk .ico { font-size: 2rem; }
+body.touch .round { width: 3.6rem; height: 3.6rem; }
+body.touch .round big { font-size: 1.4rem; }
+body.touch #sprintBtn { right: max(1.6rem, env(safe-area-inset-right, 0px)); bottom: max(10.4rem, env(safe-area-inset-bottom, 0px)); }
+body.touch #friendBoost { display: none; }
+body.touch #hotbar { bottom: max(0.4rem, env(safe-area-inset-bottom, 0px)); }
+body.touch .slot { width: 3.4rem; height: 3.4rem; font-size: 1.7rem; }
+
+/* Panels ---------------------------------------------------------------- */
+.overlay { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(10, 0, 25, 0.5); z-index: 20; }
+.panel { position: relative; width: min(50rem, 94vw); max-height: min(40rem, 90vh); display: grid; grid-template-rows: auto auto 1fr; background: radial-gradient(120% 80% at 50% 0%, #a86aff 0%, #6a2ad8 45%, #3a1088 100%); border: 4px solid var(--ink); border-radius: 1.2rem; box-shadow: inset 0 0.3rem 0 rgba(255,255,255,0.3), 0 0.5rem 0 var(--ink), 0 1rem 2rem rgba(10,0,30,0.5); animation: panelIn 0.3s cubic-bezier(0.34, 1.6, 0.5, 1); }
+.panel::before { content: ''; position: absolute; left: 0.4rem; right: 0.4rem; top: 0.35rem; height: 34%; border-radius: 1rem 1rem 2rem 2rem; background: linear-gradient(rgba(255,255,255,0.18), rgba(255,255,255,0)); pointer-events: none; }
+@keyframes panelIn { 0% { transform: scale(0.85); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+.panel header { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0.9rem 0.2rem; }
+.panel h2 { margin: 0; font-size: 2.2rem; transform: rotate(-3deg); }
+.x { width: 2.6rem; height: 2.6rem; padding: 0; font-size: 1.3rem; }
+.tabs { display: flex; gap: 0.35rem; padding: 0 0.9rem 0.35rem; flex-wrap: wrap; }
+.tabs button { font-size: 0.95rem; padding: 0.25rem 0.75rem; border-width: 2px; }
+.tabs button.on { background: linear-gradient(#fff, #e8d8ff); color: var(--ink); text-shadow: none; }
+.body { overflow-y: auto; padding: 0.3rem 0.9rem 0.9rem; display: grid; gap: 0.5rem; align-content: start; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.body::-webkit-scrollbar { width: 0.6rem; } .body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.5); border-radius: 1rem; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.6rem, 1fr)); gap: 0.5rem; }
+.card { position: relative; display: grid; justify-items: center; align-content: start; gap: 0.2rem; padding: 0.5rem 0.4rem 0.55rem; border: 3px solid var(--ink); border-radius: 0.9rem; background: linear-gradient(#ffffff30, #00000020); box-shadow: inset 0 0.2rem 0 rgba(255,255,255,0.3); text-align: center; transition: transform 0.18s cubic-bezier(0.34, 1.8, 0.5, 1); }
+.card:hover { transform: translateY(-3px) scale(1.03); }
+.card .ic { font-size: 2.6rem; line-height: 1.15; height: 3rem; display: grid; place-items: center; filter: drop-shadow(0 0.12rem 0 rgba(0,0,0,0.3)); }
+.card .nm { font-size: 1.05rem; font-weight: 700; line-height: 1.1; }
+.card .ds { font-size: 0.78rem; opacity: 0.95; line-height: 1.15; min-height: 1.8em; }
+.card .btn { font-size: 1rem; padding: 0.2rem 0.7rem; border-width: 2px; margin-top: 0.15rem; }
+.card.hot { background: linear-gradient(#ffb86a, #ff5a2a); }
+.card.gold { background: linear-gradient(#ffe07a, #ff8a2a); }
+.card.lim { background: linear-gradient(#c88aff, #6a2ad8); }
+.card.own { box-shadow: inset 0 0 0 3px #9aff7a; }
+.card.lock { filter: grayscale(0.6) brightness(0.8); }
+.sec { font-size: 1.15rem; font-weight: 700; margin: 0.3rem 0 0; }
+.note { margin: 0; font-size: 0.85rem; opacity: 0.95; }
+.row { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.6rem; border: 3px solid var(--ink); border-radius: 0.8rem; background: rgba(255,255,255,0.14); flex-wrap: wrap; }
+.row .ic { font-size: 1.8rem; }
+.row .tx { flex: 1; display: grid; min-width: 8rem; }
+.row .tx b { font-size: 1.05rem; }
+.row .tx small { font-size: 0.8rem; opacity: 0.95; }
+.row .btn { font-size: 0.95rem; padding: 0.2rem 0.7rem; border-width: 2px; }
+.row input[type=range] { flex: 1; accent-color: #fff; min-width: 6rem; }
+.input { font-family: var(--font); font-size: 1rem; padding: 0.35rem 0.6rem; border: 3px solid var(--ink); border-radius: 0.6rem; flex: 1; min-width: 0; }
+.card2 { position: relative; display: grid; justify-items: center; gap: 0.5rem; width: min(24rem, 90vw); padding: 1.2rem 1.2rem 1rem; background: radial-gradient(120% 80% at 50% 0%, #a86aff 0%, #6a2ad8 50%, #3a1088 100%); border: 4px solid var(--ink); border-radius: 1.2rem; box-shadow: 0 0.5rem 0 var(--ink); text-align: center; animation: panelIn 0.3s cubic-bezier(0.34, 1.6, 0.5, 1); }
+.card2 h2 { margin: 0; font-size: 1.8rem; }
+.card2 .big-ic { font-size: 3.6rem; height: 4rem; display: grid; place-items: center; }
+.card2 .acts { display: flex; gap: 0.6rem; }
+.card2 .acts .btn { font-size: 1.15rem; padding: 0.35rem 1.2rem; }
+.card2 .x { position: absolute; right: -0.8rem; top: -0.8rem; }
+.cost { font-size: 1.3rem; font-weight: 700; color: #ffe24a; }
+.cup { display: inline-block; width: 0.95em; height: 0.95em; margin-right: 0.15em; vertical-align: -0.12em; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6a8, #ffd028 55%, #d08a08); border: 0.08em solid #8a5a00; }
+.diff { display: inline-block; padding: 0.02rem 0.45rem; border-radius: 0.4rem; border: 2px solid var(--ink); color: #fff; font-weight: 800; font-size: 0.85em; letter-spacing: 0.04em; text-shadow: 0 1px 0 rgba(0,0,0,0.5); }
+/* Daily */
+.dailyCards { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.3rem; width: min(40rem, 92vw); }
+.dcard { display: grid; justify-items: center; gap: 0.1rem; padding: 0.4rem 0.1rem; border: 3px solid var(--ink); border-radius: 0.7rem; background: rgba(255,255,255,0.16); font-size: 0.75rem; font-weight: 700; text-align: center; }
+.dcard .d { font-size: 0.85rem; }
+.dcard .i { font-size: 1.5rem; }
+.dcard.done { opacity: 0.55; }
+.dcard.now { background: linear-gradient(#ffe86a, #ffb81c); color: #3a2000; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { transform: scale(1.06); } }
+
+/* Loader: the head bobbing */
+#start { position: absolute; inset: 0; display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, #7a3ad8 0%, #3a1088 45%, #10051e 100%); z-index: 40; }
+.loader { display: grid; justify-items: center; gap: 1rem; text-align: center; }
+.logo { font-family: "Montserrat", var(--font); font-size: 4.4rem; font-weight: 900; letter-spacing: 0.02em; line-height: 0.95; color: #ffd028; }
+.logo small { display: block; font-family: var(--font); font-size: 1.5rem; font-weight: 700; margin-top: 0.45rem; color: #fff; }
+.loadFace { width: 8rem; height: 8rem; border-radius: 50%; background: var(--head, none) center 60% / 112% no-repeat, #2a0a0a; border: 4px solid var(--ink); box-shadow: 0 0 2rem rgba(255,60,60,0.5), 0 0.4rem 0 var(--ink); animation: loadBob 1.1s ease-in-out infinite; }
+@keyframes loadBob { 0%, 100% { transform: translateY(0) rotate(-4deg) scale(1); } 50% { transform: translateY(-0.6rem) rotate(5deg) scale(1.06); } }
+#loading { font-size: 1.4rem; font-weight: 700; }
+.err { color: #fff; max-width: 22rem; }
+
+@media (max-width: 760px), (max-height: 520px) {
+    :root { font-size: clamp(8px, calc(100vmin / 44), 14px); }
+    .panel h2 { font-size: 1.6rem; }
+    #intro .n { font-size: 2rem; }
+    #intro .face { width: 4.8rem; height: 4.8rem; }
+    #escaped .t { font-size: 3rem; }
+    .chunk { height: 2.8rem; font-size: 1.2rem; padding-right: 2.1rem; }
+    .ib { width: 2.95rem; height: 3.35rem; }
+    .ib .bub { width: 2.5rem; height: 2.5rem; font-size: 1.3rem; }
+    #guideLine { font-size: 1rem; }
+    #haha { font-size: 3.6rem; left: 12%; }
+    #runTxt { font-size: 2.1rem; }
+}
+/* phones held upright: the menu icons wrap under each other, the HUD shuffles to fit */
+@media (max-aspect-ratio: 1/1) {
+    #iconRow { flex-wrap: wrap; justify-content: flex-end; width: 7rem; row-gap: 0.3rem; }
+    #topBar { left: 42%; max-width: 60vw; }
+    #leftCol { top: max(12rem, 26vh); }
+    #guideLine { max-width: 56vw; }
+}
+@media (max-aspect-ratio: 16/10) and (min-width: 761px) {
+    #iconRow { flex-wrap: wrap; justify-content: flex-end; width: 10.6rem; row-gap: 0.4rem; }
+}
+/* Low quality: the HUD's decorative animations stop (every animated shine is a repaint each frame) */
+body.lowfx .chunk .sheen::after, body.lowfx .loadFace, body.lowfx #chase { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+    .toast, #escaped .rays, .dcard.now, .chunk .sheen::after, #cheer.go, .loadFace, #runTxt, #chase { animation-duration: 0.01s !important; animation-iteration-count: 1 !important; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+    <canvas id="view" tabindex="0" aria-label="Game view"></canvas>
+    <canvas id="speedLines" aria-hidden="true"></canvas>
+    <div id="vignette" aria-hidden="true"></div>
+
+    <div id="hud" hidden>
+        <div id="chase" class="passive" aria-hidden="true"></div>
+        <div id="chaseArrow" class="passive" aria-hidden="true"><div class="a">🔻</div></div>
+        <div id="runTxt" class="o passive" aria-hidden="true">RUN!</div>
+        <div id="flash" class="passive" aria-hidden="true"></div>
+        <div id="tpFx" class="passive" aria-hidden="true"></div>
+
+        <!-- top centre: Coins, the place, what to do next, gifts and boosts running -->
+        <div id="topBar">
+            <div id="coinBar"><span class="coin" aria-hidden="true"></span><b id="coinVal">0</b><button class="btn g-green o1" id="coinPlus" aria-label="Shop">+</button><span class="o1" id="boostTag" hidden>x2</span></div>
+            <div id="placePill" class="o1 passive">🏠 Lobby</div>
+            <div id="guideLine" class="o1 passive">🚪 Go through the Stage 1 door!</div>
+            <div id="chips"><button class="chip o1" id="giftChip">🎁 Gift in 1:00</button><span class="chip o1 passive" id="chipJump" hidden>🦘 0:00</span><span class="chip o1 passive" id="chipShield" hidden>🛡️ 0:00</span><span class="chip o1 passive" id="chipGuide" hidden>🧭 0:00</span><span class="chip o1 passive" id="chipInvis" hidden>👻 0:00</span><span class="chip passive" id="fuelChip" hidden><i></i></span></div>
+        </div>
+
+        <!-- left: the Shop, the morph, the quick boosts -->
+        <div id="leftCol">
+            <button class="chunk c-orange o" id="btnLobby" hidden><span class="sheen"></span>Lobby<span class="ico" aria-hidden="true">🏠</span></button>
+            <button class="chunk c-blue o" id="btnShop"><span class="sheen"></span>Shop<span class="ico" aria-hidden="true">🛒</span></button>
+            <button class="chunk c-red o" id="btnMorph"><span class="sheen"></span>Be the Head<span class="ico" aria-hidden="true">😡</span></button>
+            <div id="quick">
+                <button class="round o1" id="qGuide" aria-label="Guide Arrows"><big>🧭</big>Guide<span class="coin">🪙 20</span></button>
+                <button class="round o1" id="qShield" aria-label="No Damage"><big>🛡️</big>Shield<span class="coin">🪙 40</span></button>
+                <button class="round o1" id="qJump" aria-label="Jump Higher"><big>🦘</big>Jump<span class="coin">🪙 15</span></button>
+            </div>
+        </div>
+        <button class="round o1" id="sprintBtn" aria-label="Sprint"><span class="meter"></span><big>🏃</big>Sprint</button>
+
+        <!-- top right: the menu icons (the top left is the Bloxity overlay's) -->
+        <div id="iconRow">
+            <button class="ib" id="btnStore" aria-label="Shop"><span class="bub" style="--bg:linear-gradient(#fff3b0,#ffc428)">🛒</span><span class="lb o1">Shop</span></button>
+            <button class="ib" id="btnStages" aria-label="Stages"><span class="bub" style="--bg:linear-gradient(#ffd0d0,#ff5a6a)">🚪</span><span class="lb o1">Stages</span></button>
+            <button class="ib" id="btnDaily" aria-label="Daily rewards"><span class="bub" style="--bg:linear-gradient(#d8f4ff,#7ad0ff)">📅</span><span class="lb o1">Daily</span><span class="badge" id="dailyBadge" hidden>!</span></button>
+            <button class="ib" id="btnGift" aria-label="Playtime gifts"><span class="bub" style="--bg:linear-gradient(#ffe0f0,#ff7ad0)">🎁</span><span class="lb o1" id="giftLb">Gifts</span><span class="badge" id="giftBadge" hidden>!</span></button>
+            <button class="ib" id="btnInvite" aria-label="Invite friends"><span class="bub" style="--bg:linear-gradient(#f0e0ff,#b48aff)">👥</span><span class="lb o1">Invite</span></button>
+            <button class="ib" id="btnConfig" aria-label="Settings"><span class="bub" style="--bg:linear-gradient(#ffffff,#d0d8e8)">⚙️</span><span class="lb o1">Settings</span></button>
+        </div>
+
+        <div id="friendBoost" class="o passive">Friend Boost: 0%</div>
+        <div id="hotbar"></div>
+        <div id="crosshair" hidden></div>
+
+        <div id="intro" class="passive" hidden><div class="face"></div><div class="tx"><div class="n" id="introN">Stage 1: Basement</div><div class="s o1" id="introS"></div></div></div>
+        <div id="haha" class="passive" hidden>Haha!</div>
+        <div id="blackout" class="passive"></div>
+        <div id="revive" hidden>
+            <div class="q o">😱 Keep going?</div>
+            <button class="btn o" id="reviveBtn">Revive<small id="revivePrice">🪙 3</small></button>
+            <div id="reviveBar"><div id="reviveFill"></div></div>
+        </div>
+        <div id="continue" hidden>
+            <span class="ic">🚪</span>
+            <h3 class="o1" id="contTitle">Welcome back!</h3>
+            <p class="o1" id="contText">Carry on from your checkpoint?</p>
+            <div class="acts"><button class="btn g-green o1" id="contGo">Continue</button><button class="btn g-grey o1" id="contNo">Lobby</button></div>
+        </div>
+        <div id="gearPop" hidden>
+            <span class="ic" id="gpIc">🌀</span>
+            <h3 class="o1" id="gpName">Speed Coil</h3>
+            <p class="o1" id="gpDesc">Run faster.</p>
+            <div class="acts"><button class="btn g-green o1" id="gpBuy">Buy</button><button class="btn g-grey o1" id="gpClose">Close</button></div>
+        </div>
+        <div id="escaped" hidden>
+            <div class="rays"></div>
+            <div class="t o">ESCAPED!</div>
+            <div class="s o" id="escS">Stage 1: Basement</div>
+            <div class="c o" id="escC">+30 Coins</div>
+            <div><span class="first o1" id="escFirst">⭐ FIRST ESCAPE x2!</span></div>
+            <div class="s o1" id="escT">Time 1:23</div>
+            <div class="acts"><button class="btn g-green o" id="escNext">▶ Next Stage</button><button class="btn g-purple o" id="escLobby">🏠 Lobby</button></div>
+        </div>
+        <div id="cheer" class="o passive" hidden></div>
+        <div id="toasts"></div>
+        <div id="tips" class="o1" hidden></div>
+        <button id="promptBtn" hidden><kbd>E</kbd><span id="promptTxt"></span></button>
+        <div id="fps" class="o1 passive" hidden>60 FPS</div>
+
+        <div id="touch" hidden>
+            <div id="stick"><div id="knob"></div></div>
+            <button class="btn g-orange o" id="jumpBtn">JUMP</button>
+            <button class="btn g-purple o" id="useBtn" hidden>🖐️</button>
+        </div>
+    </div>
+
+    <div id="modal" class="overlay" hidden>
+        <div class="panel">
+            <header><h2 class="o" id="modalTitle">SHOP!</h2><button class="btn g-red x o1" id="modalClose" aria-label="Close">X</button></header>
+            <div class="tabs" id="modalTabs"></div>
+            <div class="body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <div id="confirm" class="overlay" hidden>
+        <div class="card2">
+            <button class="btn g-red x o" id="confirmClose" aria-label="Close">X</button>
+            <div class="big-ic" id="confirmIc">🛒</div>
+            <h2 class="o" id="confirmTitle">Buy?</h2>
+            <div class="o1" id="confirmText"></div>
+            <div class="cost o1" id="confirmCost"></div>
+            <div class="acts"><button class="btn g-green o" id="confirmYes">Buy</button><button class="btn g-grey o" id="confirmNo">Cancel</button></div>
+            <small class="o1" id="confirmNote" style="opacity:0.95"></small>
+        </div>
+    </div>
+
+    <div id="daily" class="overlay" hidden>
+        <div class="card2" style="width:min(44rem,94vw)">
+            <button class="btn g-red x o" id="dailyClose" aria-label="Close">X</button>
+            <h2 class="o" id="dailyTitle">📅 Daily Rewards</h2>
+            <div class="dailyCards" id="dailyCards"></div>
+            <div class="o1" id="dailyLeft">Your daily reward is ready!</div>
+            <button class="btn g-yellow o" id="dailyClaim" style="font-size:1.3rem;padding:0.35rem 2rem">CLAIM</button>
+        </div>
+    </div>
+
+    <div id="offline" class="overlay" hidden>
+        <div class="card2">
+            <h2 class="o" id="offlineTitle">Disconnected</h2>
+            <p class="o1">The connection to the server was lost.</p>
+            <div class="acts"><button class="btn g-green o" id="reconnectBtn">Rejoin</button></div>
+        </div>
+    </div>
+
+    <div id="start">
+        <div class="loader">
+            <div class="loadFace" aria-hidden="true"></div>
+            <div class="logo o">ESCAPE ANGRY HEAD<small class="o1">Run. Hide. Don't let them catch you!</small></div>
+            <div id="loading" class="o1">Loading…</div>
+            <div class="err o1" id="connectErr" hidden></div>
+            <button class="btn g-green o" id="playBtn" hidden>Try again</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://sdk.bloxity.io/v1/legion-sdk.min.js"></script>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
